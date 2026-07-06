@@ -244,6 +244,11 @@ export class ConfigurationService extends Disposable implements IWorkbenchConfig
 		return !!(workspace.configuration && this.uriIdentityService.extUri.isEqual(workspace.configuration, resource));
 	}
 
+	getFolderConfigFolderName(_folderUri: URI): string {
+		// the sessions window always uses the compatible default
+		return FOLDER_CONFIG_FOLDER_NAME;
+	}
+
 	private getSettingsResource(target: ConfigurationTarget | undefined, resource: URI | undefined): URI {
 		if (target === ConfigurationTarget.WORKSPACE_FOLDER) {
 			if (resource) {

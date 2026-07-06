@@ -223,6 +223,9 @@ import './contrib/dida/browser/defaultSidebar.contribution.js';
 // Update check against the Dida release manifest
 import './contrib/dida/browser/updateCheck.contribution.js';
 
+// Workspace config folder (.dida with .vscode fallback)
+import './contrib/dida/browser/workspaceConfigFolder.contribution.js';
+
 // Preferences (Settings UI — the editor pane, menus, and the services its
 // search and header inject; both AI/chat services are inert in this fork)
 import './services/aiSettingsSearch/common/aiSettingsSearchService.js';

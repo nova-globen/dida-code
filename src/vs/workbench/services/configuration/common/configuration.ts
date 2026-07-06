@@ -12,8 +12,18 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { IAnyWorkspaceIdentifier } from '../../../../platform/workspace/common/workspace.js';
 
 export const FOLDER_CONFIG_FOLDER_NAME = '.vscode';
+export const DIDA_FOLDER_CONFIG_FOLDER_NAME = '.dida';
+export const WORKSPACE_CONFIG_FOLDER_SETTING = 'dida.workspaceConfigFolder';
 export const FOLDER_SETTINGS_NAME = 'settings';
 export const FOLDER_SETTINGS_PATH = `${FOLDER_CONFIG_FOLDER_NAME}/${FOLDER_SETTINGS_NAME}.json`;
+
+/**
+ * Rebases a `.vscode`-relative config path onto the config folder resolved
+ * for a workspace folder (`.dida` when present, `.vscode` otherwise).
+ */
+export function toFolderConfigRelativePath(configFolderName: string, relativePath: string): string {
+	return relativePath.startsWith(FOLDER_CONFIG_FOLDER_NAME) ? configFolderName + relativePath.substring(FOLDER_CONFIG_FOLDER_NAME.length) : relativePath;
+}
 
 export const defaultSettingsSchemaId = 'vscode://schemas/settings/default';
 export const userSettingsSchemaId = 'vscode://schemas/settings/user';
@@ -67,6 +77,12 @@ export type RestrictedSettings = {
 
 export const IWorkbenchConfigurationService = refineServiceDecorator<IConfigurationService, IWorkbenchConfigurationService>(IConfigurationService);
 export interface IWorkbenchConfigurationService extends IConfigurationService {
+	/**
+	 * The config folder name (`.dida` or `.vscode`) resolved for the given
+	 * workspace folder. Defaults to `.vscode` for unknown folders.
+	 */
+	getFolderConfigFolderName(folderUri: URI): string;
+
 	/**
 	 * Restricted settings defined in each configuration target
 	 */

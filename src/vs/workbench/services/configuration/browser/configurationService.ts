@@ -15,7 +15,7 @@ import { ConfigurationModel, ConfigurationChangeEvent, mergeChanges } from '../.
 import { IConfigurationChangeEvent, ConfigurationTarget, IConfigurationOverrides, isConfigurationOverrides, IConfigurationData, IConfigurationValue, IConfigurationChange, ConfigurationTargetToString, IConfigurationUpdateOverrides, isConfigurationUpdateOverrides, IConfigurationService, IConfigurationUpdateOptions } from '../../../../platform/configuration/common/configuration.js';
 import { IPolicyConfiguration, NullPolicyConfiguration, PolicyConfiguration } from '../../../../platform/configuration/common/configurations.js';
 import { Configuration } from '../common/configurationModels.js';
-import { FOLDER_CONFIG_FOLDER_NAME, defaultSettingsSchemaId, userSettingsSchemaId, workspaceSettingsSchemaId, folderSettingsSchemaId, IConfigurationCache, machineSettingsSchemaId, LOCAL_MACHINE_SCOPES, IWorkbenchConfigurationService, RestrictedSettings, PROFILE_SCOPES, LOCAL_MACHINE_PROFILE_SCOPES, profileSettingsSchemaId, APPLY_ALL_PROFILES_SETTING, APPLICATION_SCOPES } from '../common/configuration.js';
+import { FOLDER_CONFIG_FOLDER_NAME, DIDA_FOLDER_CONFIG_FOLDER_NAME, WORKSPACE_CONFIG_FOLDER_SETTING, defaultSettingsSchemaId, userSettingsSchemaId, workspaceSettingsSchemaId, folderSettingsSchemaId, IConfigurationCache, machineSettingsSchemaId, LOCAL_MACHINE_SCOPES, IWorkbenchConfigurationService, RestrictedSettings, PROFILE_SCOPES, LOCAL_MACHINE_PROFILE_SCOPES, profileSettingsSchemaId, APPLY_ALL_PROFILES_SETTING, APPLICATION_SCOPES } from '../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions, allSettings, windowSettings, resourceSettings, applicationSettings, machineSettings, machineOverridableSettings, ConfigurationScope, IConfigurationPropertySchema, keyFromOverrideIdentifiers, OVERRIDE_PROPERTY_PATTERN, resourceLanguageSettingsSchemaId, configurationDefaultsSchemaId, applicationMachineSettings, isConfigurationDefaultSourceEquals, ConfigurationDefaultSource } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IStoredWorkspaceFolder, isStoredWorkspaceFolder, IWorkspaceFolderCreationData, getStoredWorkspaceFolder, toWorkspaceFolders } from '../../../../platform/workspaces/common/workspaces.js';
@@ -80,6 +80,7 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 	private readonly remoteUserConfiguration: RemoteUserConfiguration | null = null;
 	private readonly workspaceConfiguration: WorkspaceConfiguration;
 	private cachedFolderConfigs: DisposableMap<URI, FolderConfiguration> = this._register(new DisposableMap(new ResourceMap()));
+	private readonly folderConfigFolderNames = new ResourceMap<string>();
 	private readonly workspaceEditingQueue: Queue<void>;
 
 	private readonly _onDidChangeConfiguration: Emitter<IConfigurationChangeEvent> = this._register(new Emitter<IConfigurationChangeEvent>());
@@ -948,6 +949,7 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 		for (const key of this.cachedFolderConfigs.keys()) {
 			if (!this.workspace.folders.filter(folder => folder.uri.toString() === key.toString())[0]) {
 				this.cachedFolderConfigs.deleteAndDispose(key);
+				this.folderConfigFolderNames.delete(key);
 				changes.push(this._configuration.compareAndDeleteFolderConfiguration(key));
 			}
 		}
@@ -963,15 +965,39 @@ export class WorkspaceService extends Disposable implements IWorkbenchConfigurat
 	}
 
 	private loadFolderConfigurations(folders: IWorkspaceFolder[]): Promise<ConfigurationModel[]> {
-		return Promise.all([...folders.map(folder => {
+		return Promise.all([...folders.map(async folder => {
 			let folderConfiguration = this.cachedFolderConfigs.get(folder.uri);
 			if (!folderConfiguration) {
-				folderConfiguration = new FolderConfiguration(!this.initialized, folder, FOLDER_CONFIG_FOLDER_NAME, this.getWorkbenchState(), this.isWorkspaceTrusted, this.fileService, this.uriIdentityService, this.logService, this.configurationCache);
+				const configFolderName = await this.resolveFolderConfigFolderName(folder);
+				this.folderConfigFolderNames.set(folder.uri, configFolderName);
+				folderConfiguration = new FolderConfiguration(!this.initialized, folder, configFolderName, this.getWorkbenchState(), this.isWorkspaceTrusted, this.fileService, this.uriIdentityService, this.logService, this.configurationCache);
 				folderConfiguration.addRelated(folderConfiguration.onDidChange(() => this.onWorkspaceFolderConfigurationChanged(folder)));
 				this.cachedFolderConfigs.set(folder.uri, folderConfiguration);
 			}
 			return folderConfiguration.loadConfiguration();
 		})]);
+	}
+
+	getFolderConfigFolderName(folderUri: URI): string {
+		return this.folderConfigFolderNames.get(folderUri) ?? FOLDER_CONFIG_FOLDER_NAME;
+	}
+
+	private async resolveFolderConfigFolderName(folder: IWorkspaceFolder): Promise<string> {
+		const preference = this.getValue<string>(WORKSPACE_CONFIG_FOLDER_SETTING);
+		if (preference === 'vscode') {
+			return FOLDER_CONFIG_FOLDER_NAME;
+		}
+		if (preference === 'dida') {
+			return DIDA_FOLDER_CONFIG_FOLDER_NAME;
+		}
+		try {
+			if (await this.fileService.exists(folder.toResource(DIDA_FOLDER_CONFIG_FOLDER_NAME))) {
+				return DIDA_FOLDER_CONFIG_FOLDER_NAME;
+			}
+		} catch {
+			// inaccessible folder — fall back to the compatible default
+		}
+		return FOLDER_CONFIG_FOLDER_NAME;
 	}
 
 	private async validateWorkspaceFoldersAndReload(fromCache: boolean): Promise<void> {

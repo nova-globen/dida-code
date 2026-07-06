@@ -76,7 +76,7 @@ export class PreferencesContribution extends Disposable implements IWorkbenchCon
 						const state = this.workspaceService.getWorkbenchState();
 						if (state === WorkbenchState.FOLDER) {
 							const folders = this.workspaceService.getWorkspace().folders;
-							if (isEqual(resource, folders[0].toResource(FOLDER_SETTINGS_PATH))) {
+							if (isEqual(resource, this.preferencesService.getFolderSettingsResource(folders[0].uri) ?? folders[0].toResource(FOLDER_SETTINGS_PATH))) {
 								return { editor: this.preferencesService.createSplitJsonEditorInput(ConfigurationTarget.WORKSPACE, resource), options };
 							}
 						}
@@ -85,7 +85,7 @@ export class PreferencesContribution extends Disposable implements IWorkbenchCon
 						else if (state === WorkbenchState.WORKSPACE) {
 							const folders = this.workspaceService.getWorkspace().folders;
 							for (const folder of folders) {
-								if (isEqual(resource, folder.toResource(FOLDER_SETTINGS_PATH))) {
+								if (isEqual(resource, this.preferencesService.getFolderSettingsResource(folder.uri) ?? folder.toResource(FOLDER_SETTINGS_PATH))) {
 									return { editor: this.preferencesService.createSplitJsonEditorInput(ConfigurationTarget.WORKSPACE_FOLDER, resource), options };
 								}
 							}

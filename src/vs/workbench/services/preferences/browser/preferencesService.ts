@@ -15,7 +15,7 @@ import { IPosition } from '../../../../editor/common/core/position.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import * as nls from '../../../../nls.js';
-import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
 import { Extensions, getDefaultValue, IConfigurationRegistry, OVERRIDE_PROPERTY_REGEX } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { FileOperationError, FileOperationResult } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -32,6 +32,7 @@ import { IJSONEditingService } from '../../configuration/common/jsonEditing.js';
 import { GroupDirection, IEditorGroupsService } from '../../editor/common/editorGroupsService.js';
 import { ACTIVE_GROUP, IEditorService, MODAL_GROUP, PreferredGroup, SIDE_GROUP } from '../../editor/common/editorService.js';
 import { KeybindingsEditorInput } from './keybindingsEditorInput.js';
+import { IWorkbenchConfigurationService, toFolderConfigRelativePath } from '../../configuration/common/configuration.js';
 import { DEFAULT_SETTINGS_EDITOR_SETTING, FOLDER_SETTINGS_PATH, IKeybindingsEditorPane, IOpenKeybindingsEditorOptions, IOpenSettingsOptions, IPreferencesEditorModel, IPreferencesService, ISetting, ISettingsEditorOptions, ISettingsGroup, SETTINGS_AUTHORITY, USE_SPLIT_JSON_SETTING, validateSettingsEditorOptions } from '../common/preferences.js';
 import { PreferencesEditorInput, SettingsEditor2Input } from '../common/preferencesEditorInput.js';
 import { defaultKeybindingsContents, DefaultKeybindingsEditorModel, DefaultRawSettingsEditorModel, DefaultSettings, DefaultSettingsEditorModel, Settings2EditorModel, SettingsEditorModel, WorkspaceConfigurationEditorModel } from '../common/preferencesModels.js';
@@ -76,7 +77,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 		@IEditorService private readonly editorService: IEditorService,
 		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
 		@ITextFileService private readonly textFileService: ITextFileService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IWorkbenchConfigurationService private readonly configurationService: IWorkbenchConfigurationService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -121,7 +122,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 			return null;
 		}
 		const workspace = this.contextService.getWorkspace();
-		return workspace.configuration || workspace.folders[0].toResource(FOLDER_SETTINGS_PATH);
+		return workspace.configuration || workspace.folders[0].toResource(toFolderConfigRelativePath(this.configurationService.getFolderConfigFolderName(workspace.folders[0].uri), FOLDER_SETTINGS_PATH));
 	}
 
 	private createOrGetCachedSettingsEditor2Input(): SettingsEditor2Input {
@@ -135,7 +136,7 @@ export class PreferencesService extends Disposable implements IPreferencesServic
 
 	getFolderSettingsResource(resource: URI): URI | null {
 		const folder = this.contextService.getWorkspaceFolder(resource);
-		return folder ? folder.toResource(FOLDER_SETTINGS_PATH) : null;
+		return folder ? folder.toResource(toFolderConfigRelativePath(this.configurationService.getFolderConfigFolderName(folder.uri), FOLDER_SETTINGS_PATH)) : null;
 	}
 
 	hasDefaultSettingsContent(uri: URI): boolean {
