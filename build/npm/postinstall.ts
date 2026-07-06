@@ -186,12 +186,16 @@ function clearInheritedNpmrcConfig(dir: string, env: NodeJS.ProcessEnv): void {
 	}
 }
 
-function ensureAgentHarnessLink(sourceRelativePath: string, linkPath: string): 'existing' | 'junction' | 'symlink' | 'hard link' {
+function ensureAgentHarnessLink(sourceRelativePath: string, linkPath: string): 'existing' | 'missing' | 'junction' | 'symlink' | 'hard link' {
 	if (fs.existsSync(linkPath)) {
 		return 'existing';
 	}
 
 	const sourcePath = path.resolve(path.dirname(linkPath), sourceRelativePath);
+	if (!fs.existsSync(sourcePath)) {
+		// agent harness files are maintainer-local and absent in clones/CI
+		return 'missing';
+	}
 	const isDirectory = fs.statSync(sourcePath).isDirectory();
 
 	try {
@@ -314,7 +318,9 @@ async function main() {
 	await runWithConcurrency(parallelTasks, concurrency);
 
 	child_process.execSync('git config pull.rebase merges');
-	child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+	if (fs.existsSync(path.join(root, '.git-blame-ignore-revs'))) {
+		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+	}
 
 	fs.writeFileSync(stateFile, JSON.stringify(_state));
 	fs.writeFileSync(stateContentsFile, JSON.stringify(computeContents()));
@@ -325,13 +331,13 @@ async function main() {
 
 	const claudeMdLink = path.join(claudeDir, 'CLAUDE.md');
 	const claudeMdLinkType = ensureAgentHarnessLink(path.join('..', '.github', 'copilot-instructions.md'), claudeMdLink);
-	if (claudeMdLinkType !== 'existing') {
+	if (claudeMdLinkType !== 'existing' && claudeMdLinkType !== 'missing') {
 		log('.', `Created ${claudeMdLinkType} .claude/CLAUDE.md -> .github/copilot-instructions.md`);
 	}
 
 	const claudeSkillsLink = path.join(claudeDir, 'skills');
 	const claudeSkillsLinkType = ensureAgentHarnessLink(path.join('..', '.agents', 'skills'), claudeSkillsLink);
-	if (claudeSkillsLinkType !== 'existing') {
+	if (claudeSkillsLinkType !== 'existing' && claudeSkillsLinkType !== 'missing') {
 		log('.', `Created ${claudeSkillsLinkType} .claude/skills -> .agents/skills`);
 	}
 
