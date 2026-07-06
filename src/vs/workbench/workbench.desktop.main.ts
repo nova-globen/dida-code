@@ -86,6 +86,9 @@ import './services/userDataSync/browser/userDataSyncEnablementService.js';
 import './services/extensions/electron-browser/nativeExtensionService.js';
 import './contrib/debug/electron-browser/extensionHostDebugService.js';
 import './contrib/dida/electron-browser/shellContextMenu.contribution.js';
+
+// Window tabs (all windows as tabs of one window)
+import './contrib/dida/electron-browser/windowTabs.contribution.js';
 import '../platform/userDataProfile/electron-browser/userDataProfileStorageService.js';
 import './services/auxiliaryWindow/electron-browser/auxiliaryWindowService.js';
 import '../platform/extensionManagement/electron-browser/extensionsProfileScannerService.js';

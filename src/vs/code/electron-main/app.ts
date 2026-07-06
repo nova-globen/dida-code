@@ -93,6 +93,7 @@ import { IWebviewManagerService } from '../../platform/webview/common/webviewMan
 import { WebviewMainService } from '../../platform/webview/electron-main/webviewMainService.js';
 import { isFolderToOpen, isWorkspaceToOpen, IWindowOpenable } from '../../platform/window/common/window.js';
 import { getAllWindowsExcludingOffscreen, IWindowsMainService, OpenContext } from '../../platform/windows/electron-main/windows.js';
+import { DidaWindowTabsService } from '../../platform/windows/electron-main/didaWindowTabsService.js';
 import { ICodeWindow } from '../../platform/window/electron-main/window.js';
 import { WindowsMainService } from '../../platform/windows/electron-main/windowsMainService.js';
 import { ActiveWindowManager } from '../../platform/windows/node/windowTracker.js';
@@ -1241,6 +1242,10 @@ export class CodeApplication extends Disposable {
 
 		const nativeManagedSettingsChannel = disposables.add(new NativeManagedSettingsChannel(accessor.get(INativeManagedSettingsService)));
 		mainProcessElectronServer.registerChannel('nativeManagedSettings', nativeManagedSettingsChannel);
+
+		// Window tabs (all windows presented as tabs of one window)
+		const windowTabsService = disposables.add(accessor.get(IInstantiationService).createInstance(DidaWindowTabsService));
+		mainProcessElectronServer.registerChannel('didaWindowTabs', ProxyChannel.fromService(windowTabsService, disposables));
 
 		const fileManagedSettingsChannel = disposables.add(new FileManagedSettingsChannel(accessor.get(IFileManagedSettingsService)));
 		mainProcessElectronServer.registerChannel('fileManagedSettings', fileManagedSettingsChannel);
