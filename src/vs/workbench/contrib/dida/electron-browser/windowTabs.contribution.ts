@@ -77,8 +77,12 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 		this.container.style.margin = '0 4px';
 		this.container.style.maxWidth = '45vw';
 		this.container.style.overflow = 'hidden';
-		// the titlebar is a window drag region; without an explicit no-drag
-		// the OS turns clicks into window drags and no DOM event ever fires
+		// the titlebar is covered by the absolute .titlebar-drag-region
+		// overlay; interactive titlebar elements must stack above it (the
+		// menubar and window controls use the same z-index) AND opt out of
+		// the drag region, or clicks turn into window drags
+		this.container.style.position = 'relative';
+		this.container.style.zIndex = '2500';
 		this.container.style.setProperty('-webkit-app-region', 'no-drag');
 		return this.container;
 	}

@@ -64,6 +64,16 @@ export class DidaWindowTabsService extends Disposable implements IDidaWindowTabs
 		if (this.tabOrder.includes(window.id)) {
 			return;
 		}
+
+		// opening an already-open folder switches to its tab instead of
+		// creating a duplicate
+		const duplicateOf = this.findTabWithSameWorkspace(window);
+		if (duplicateOf !== undefined) {
+			window.win?.close();
+			this.doSwitchToTab(duplicateOf);
+			return;
+		}
+
 		this.tabOrder.push(window.id);
 
 		const win = window.win;
@@ -82,6 +92,9 @@ export class DidaWindowTabsService extends Disposable implements IDidaWindowTabs
 			win.on('move', listener);
 			win.on('resize', listener);
 			win.on('focus', () => this.markActive(window.id));
+			// the windows service destroy event does not cover every close
+			// path; the BrowserWindow closed event does (remove is idempotent)
+			win.once('closed', () => this.remove(window));
 		}
 
 		this.markActive(window.id);
@@ -104,10 +117,29 @@ export class DidaWindowTabsService extends Disposable implements IDidaWindowTabs
 		// closing the active tab reveals the most recently used one so the
 		// app never appears to vanish while hidden tabs remain — but not
 		// while quitting, where windows tear down one by one
-		if (wasActive && this.mruOrder.length > 0 && !this.lifecycleMainService.quitRequested) {
-			this.doSwitchToTab(this.mruOrder[0]);
+		if (wasActive && !this.lifecycleMainService.quitRequested) {
+			this.ensureSomeTabVisible();
 		}
 		this._onDidChangeTabs.fire();
+	}
+
+	private findTabWithSameWorkspace(window: ICodeWindow): number | undefined {
+		const workspaceId = this.getWorkspaceId(window);
+		if (!workspaceId) {
+			return undefined;
+		}
+		return this.tabOrder.find(id => {
+			const other = this.windowsMainService.getWindowById(id);
+			return other && this.getWorkspaceId(other) === workspaceId;
+		});
+	}
+
+	private getWorkspaceId(window: ICodeWindow): string | undefined {
+		const workspace = window.config?.workspace;
+		if (isSingleFolderWorkspaceIdentifier(workspace) || isWorkspaceIdentifier(workspace)) {
+			return workspace.id;
+		}
+		return undefined;
 	}
 
 	private markActive(id: number): void {
@@ -120,6 +152,23 @@ export class DidaWindowTabsService extends Disposable implements IDidaWindowTabs
 		}
 		this.mruOrder.unshift(id);
 		this._onDidChangeTabs.fire();
+	}
+
+	/**
+	 * Shows the most recently used live tab if no member window is visible —
+	 * hidden-only members would otherwise look like the app exited.
+	 */
+	private ensureSomeTabVisible(): void {
+		const liveWindows = this.mruOrder
+			.map(id => this.windowsMainService.getWindowById(id))
+			.filter(w => w?.win && !w.win.isDestroyed());
+		if (liveWindows.length === 0) {
+			return;
+		}
+		if (liveWindows.some(w => w!.win!.isVisible())) {
+			return;
+		}
+		this.doSwitchToTab(liveWindows[0]!.id);
 	}
 
 	private captureActiveBounds(): void {
