@@ -77,7 +77,9 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 		this.container.style.margin = '0 4px';
 		this.container.style.maxWidth = '45vw';
 		this.container.style.overflow = 'hidden';
-		(this.container.style as CSSStyleDeclaration & { webkitAppRegion?: string }).webkitAppRegion = 'no-drag';
+		// the titlebar is a window drag region; without an explicit no-drag
+		// the OS turns clicks into window drags and no DOM event ever fires
+		this.container.style.setProperty('-webkit-app-region', 'no-drag');
 		return this.container;
 	}
 
@@ -106,6 +108,7 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 			el.style.font = 'inherit';
 			el.style.background = tab.active ? 'var(--vscode-tab-activeBackground, var(--vscode-toolbar-activeBackground))' : 'transparent';
 			el.style.color = 'var(--vscode-titleBar-activeForeground)';
+			el.style.setProperty('-webkit-app-region', 'no-drag');
 			el.style.outline = tab.active ? '1px solid var(--vscode-contrastActiveBorder, transparent)' : 'none';
 			el.title = tab.label;
 
@@ -137,6 +140,7 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 		add.style.padding = '3px';
 		add.style.cursor = 'pointer';
 		add.style.opacity = '0.8';
+		add.style.setProperty('-webkit-app-region', 'no-drag');
 		add.title = localize('newFolderTab', "Open Folder in New Tab");
 		this.renderDisposables.add(dom.addDisposableListener(add, 'click', () => {
 			this.nativeHostService.pickFolderAndOpen({ forceNewWindow: true });
