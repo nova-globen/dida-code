@@ -1,0 +1,77 @@
+Dida Source-Available License 1.0
+
+Copyright (c) 2026 Nova Globen AB (didabit.com). All rights reserved.
+
+Dida is a distribution based on Code - OSS (https://github.com/microsoft/vscode),
+Copyright (c) 2015 - present Microsoft Corporation, which is licensed under the
+MIT License. The complete Microsoft MIT License text is preserved in the file
+LICENSE.vscode.txt and third-party attributions are preserved in
+ThirdPartyNotices.txt. Nothing in this license removes or limits any rights
+you have in the underlying Code - OSS sources under the MIT License; this
+license governs only the Dida distribution, branding, and the modifications
+made by Nova Globen AB.
+
+1. Definitions
+
+   "Software" means the Dida application distribution, including the
+   modifications, branding and packaging produced by Nova Globen AB.
+
+   "Personal Use" means use by an individual acting on their own behalf,
+   including use for learning, hobby projects, and open source contributions,
+   and not on behalf of an organization.
+
+   "Commercial Use" means any use by or for an organization (a company,
+   partnership, sole proprietorship acting commercially, government body, or
+   other legal entity), or any use that directly serves paid work.
+
+2. Grant for Personal Use
+
+   Subject to this license, Nova Globen AB grants you a worldwide,
+   royalty-free, non-exclusive, non-transferable license to use the Software
+   for Personal Use, free of charge.
+
+3. Grant for Small Organizations
+
+   Organizations whose total annual gross revenue (including that of
+   affiliates) in their last fiscal year was below USD 100,000 may use the
+   Software free of charge under the same terms as Personal Use.
+
+4. Commercial Use
+
+   Any other Commercial Use requires an active paid subscription per user as
+   described in PRICING.md and at https://code.didabit.com/pricing.
+   Subscriptions are managed at https://code.didabit.com.
+
+5. Source Availability and Modifications
+
+   The source code of the Software is available at the repository indicated
+   at https://code.didabit.com. You may view, build, and modify the sources
+   for your own use. If you distribute the Software or a modified version of
+   it, you must (a) retain this license, LICENSE.vscode.txt and
+   ThirdPartyNotices.txt, (b) not use the names "Dida", "DidaBit" or
+   "Nova Globen", or the Dida icon, for a modified distribution, and (c) make
+   the source of your modifications available under this same license.
+
+6. No Trademark License
+
+   This license grants no rights to use Nova Globen AB's trademarks, logos,
+   or product names, except as required for reasonable and customary
+   attribution.
+
+7. Warranty Disclaimer and Limitation of Liability
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+   NOVA GLOBEN AB BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+   OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+8. Termination
+
+   This license terminates automatically if you materially breach it and do
+   not cure the breach within 30 days of becoming aware of it. Upon
+   termination, you must stop using the Software; sections 5-7 survive.
+
+For questions about licensing, contact licensing@didabit.com.

@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-11-arm
+            gulp-target: vscode-win32-arm64-min
+            dist-folder: win32-arm64
+            artifact: Dida-win32-arm64
+            native-arch: arm64
+          - os: windows-latest
+            gulp-target: vscode-win32-x64-min
+            dist-folder: win32-x64
+            artifact: Dida-win32-x64
+            native-arch: x64
+          - os: ubuntu-latest
+            gulp-target: vscode-linux-x64-min
+            dist-folder: linux-x64
+            artifact: Dida-linux-x64
+            native-arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev pkg-config
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_arch: ${{ matrix.native-arch }}
+
+      - name: Rebuild native modules for Electron
+        shell: bash
+        run: |
+          ELECTRON_VERSION=$(node -p "require('./package.json').devDependencies.electron")
+          export npm_config_runtime=electron
+          export npm_config_target="$ELECTRON_VERSION"
+          export npm_config_disturl=https://electronjs.org/headers
+          export npm_config_build_from_source=true
+          export npm_config_arch=${{ matrix.native-arch }}
+          npm rebuild @parcel/watcher
+
+      - name: Package
+        run: npm run gulp -- ${{ matrix.gulp-target }}
+
+      - name: Strip sourcemaps and extra locales
+        shell: bash
+        run: |
+          find "dist/${{ matrix.dist-folder }}" -name '*.map' -delete
+          if [ -d "dist/${{ matrix.dist-folder }}/locales" ]; then
+            find "dist/${{ matrix.dist-folder }}/locales" -name '*.pak' ! -name 'en-US.pak' -delete
+          fi
+
+      - name: Zip
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cd "dist/${{ matrix.dist-folder }}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "../${{ matrix.artifact }}-$VERSION.zip" . > /dev/null
+          else
+            zip -qry "../${{ matrix.artifact }}-$VERSION.zip" .
+          fi
+
+      - name: Installer (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $arch = '${{ matrix.dist-folder }}'.Replace('win32-', '')
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = 'ISCC.exe' }
+          & $iscc "/DArch=$arch" "/DAppVersion=$version" "/DSourceDir=$PWD\dist\${{ matrix.dist-folder }}" "/O$PWD\dist" build\win32\dida-setup.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: cd artifacts && sha256sum *.zip *.exe > SHA256SUMS.txt
+
+      - name: GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.zip
+            artifacts/*.exe
+            artifacts/SHA256SUMS.txt
+          draft: true
+
+      # Publishing to code.didabit.com (Azure) is enabled once the site
+      # exists: set the AZURE_STORAGE_CONNECTION_STRING secret and uncomment.
+      # - name: Upload to code.didabit.com
+      #   env:
+      #     AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      #   run: |
+      #     az storage blob upload-batch --destination releases --source artifacts \
+      #       --connection-string "$AZURE_STORAGE_CONNECTION_STRING" --overwrite
