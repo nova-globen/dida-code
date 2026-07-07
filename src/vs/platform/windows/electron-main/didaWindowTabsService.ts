@@ -23,6 +23,8 @@ export interface IDidaWindowTabsService {
 	getTabs(): Promise<IDidaWindowTab[]>;
 	switchToTab(id: number): Promise<void>;
 	closeTab(id: number): Promise<void>;
+	closeOtherTabs(id: number): Promise<void>;
+	moveTab(id: number, toIndex: number): Promise<void>;
 	switchToNext(fromId: number, delta: number): Promise<void>;
 }
 
@@ -265,5 +267,31 @@ export class DidaWindowTabsService extends Disposable implements IDidaWindowTabs
 
 	async closeTab(id: number): Promise<void> {
 		this.windowsMainService.getWindowById(id)?.win?.close();
+	}
+
+	async closeOtherTabs(id: number): Promise<void> {
+		// snapshot the order first: each close mutates tabOrder through the
+		// window's `closed` listener while we iterate
+		for (const otherId of [...this.tabOrder]) {
+			if (otherId !== id) {
+				this.windowsMainService.getWindowById(otherId)?.win?.close();
+			}
+		}
+	}
+
+	async moveTab(id: number, toIndex: number): Promise<void> {
+		const from = this.tabOrder.indexOf(id);
+		if (from === -1) {
+			return;
+		}
+		this.tabOrder.splice(from, 1);
+		const target = Math.max(0, Math.min(toIndex, this.tabOrder.length));
+		if (target === from) {
+			// unchanged: put it back and skip the redundant re-render
+			this.tabOrder.splice(from, 0, id);
+			return;
+		}
+		this.tabOrder.splice(target, 0, id);
+		this._onDidChangeTabs.fire();
 	}
 }

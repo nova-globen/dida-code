@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as dom from '../../../../base/browser/dom.js';
+import { IAction, toAction } from '../../../../base/common/actions.js';
 import { Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ProxyChannel } from '../../../../base/parts/ipc/common/ipc.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IMainProcessService } from '../../../../platform/ipc/common/mainProcessService.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -28,6 +30,8 @@ interface IDidaWindowTabsService {
 	getTabs(): Promise<IDidaWindowTab[]>;
 	switchToTab(id: number): Promise<void>;
 	closeTab(id: number): Promise<void>;
+	closeOtherTabs(id: number): Promise<void>;
+	moveTab(id: number, toIndex: number): Promise<void>;
 	switchToNext(fromId: number, delta: number): Promise<void>;
 }
 
@@ -47,11 +51,14 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 	private readonly tabsService: IDidaWindowTabsService;
 	private container: HTMLElement | undefined;
 	private readonly renderDisposables = this._register(new DisposableStore());
+	/** id of the tab currently being dragged for reorder, if any */
+	private draggingId: number | undefined;
 
 	constructor(
 		@IMainProcessService mainProcessService: IMainProcessService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 		@INativeHostService private readonly nativeHostService: INativeHostService,
+		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 	) {
 		super();
 		this.tabsService = ProxyChannel.toService<IDidaWindowTabsService>(mainProcessService.getChannel('didaWindowTabs'));
@@ -99,7 +106,7 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 			return;
 		}
 
-		for (const tab of tabs) {
+		tabs.forEach((tab, index) => {
 			const el = dom.append(container, dom.$('.dida-window-tab'));
 			el.style.display = 'flex';
 			el.style.alignItems = 'center';
@@ -115,6 +122,7 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 			el.style.setProperty('-webkit-app-region', 'no-drag');
 			el.style.outline = tab.active ? '1px solid var(--vscode-contrastActiveBorder, transparent)' : 'none';
 			el.title = tab.label;
+			el.draggable = true;
 
 			const label = dom.append(el, dom.$('span'));
 			label.textContent = tab.label;
@@ -138,7 +146,41 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 					this.tabsService.closeTab(tab.id);
 				}
 			}));
-		}
+			this.renderDisposables.add(dom.addDisposableListener(el, dom.EventType.CONTEXT_MENU, e => {
+				dom.EventHelper.stop(e, true);
+				this.showTabContextMenu(tab, e);
+			}));
+
+			// drag to reorder within the strip
+			this.renderDisposables.add(dom.addDisposableListener(el, 'dragstart', e => {
+				this.draggingId = tab.id;
+				if (e.dataTransfer) {
+					e.dataTransfer.effectAllowed = 'move';
+					// a drag will not start unless some data is set
+					e.dataTransfer.setData('text/plain', String(tab.id));
+				}
+				el.style.opacity = '0.5';
+			}));
+			this.renderDisposables.add(dom.addDisposableListener(el, 'dragend', () => {
+				this.draggingId = undefined;
+				el.style.opacity = '1';
+			}));
+			this.renderDisposables.add(dom.addDisposableListener(el, 'dragover', e => {
+				if (this.draggingId !== undefined) {
+					e.preventDefault();
+					if (e.dataTransfer) {
+						e.dataTransfer.dropEffect = 'move';
+					}
+				}
+			}));
+			this.renderDisposables.add(dom.addDisposableListener(el, 'drop', e => {
+				e.preventDefault();
+				if (this.draggingId !== undefined && this.draggingId !== tab.id) {
+					this.tabsService.moveTab(this.draggingId, index);
+				}
+				this.draggingId = undefined;
+			}));
+		});
 
 		const add = dom.append(container, dom.$('.dida-window-tab-add.codicon.codicon-add'));
 		add.style.padding = '3px';
@@ -149,6 +191,17 @@ class WindowTabsContribution extends Disposable implements IWorkbenchContributio
 		this.renderDisposables.add(dom.addDisposableListener(add, 'click', () => {
 			this.nativeHostService.pickFolderAndOpen({ forceNewWindow: true });
 		}));
+	}
+
+	private showTabContextMenu(tab: IDidaWindowTab, event: MouseEvent): void {
+		const actions: IAction[] = [
+			toAction({ id: 'dida.windowTab.close', label: localize('closeTab', "Close Tab"), run: () => this.tabsService.closeTab(tab.id) }),
+			toAction({ id: 'dida.windowTab.closeOthers', label: localize('closeOtherTabs', "Close Other Tabs"), run: () => this.tabsService.closeOtherTabs(tab.id) }),
+		];
+		this.contextMenuService.showContextMenu({
+			getAnchor: () => ({ x: event.clientX, y: event.clientY }),
+			getActions: () => actions,
+		});
 	}
 }
 
