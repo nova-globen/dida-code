@@ -35,30 +35,7 @@ test/componentFixtures/.screenshots/*
 dist
 .playwright-cli
 .playwright-mcp
-.claude/
-.agents/agents/*.local.md
-.github/agents/*.local.md
-.agents/agents/*.local.agent.md
-.github/agents/*.local.agent.md
-.agents/hooks/*.local.json
-.github/hooks/*.local.json
-.agents/instructions/*.local.instructions.md
-.github/instructions/*.local.instructions.md
-.agents/prompts/*.local.prompt.md
-.github/prompts/*.local.prompt.md
-.agents/skills/.local/
-.github/skills/.local/
 tmp*.txt
 
 # internal working documents (local only)
-.agent/
 docs/plans/
-
-# Maintainer-local: plans, memory, and AI-agent instruction files
-AGENTS.md
-.github/copilot-instructions.md
-.github/agents/
-.github/instructions/
-.github/prompts/
-.github/skills/
-.github/chatmodes/
