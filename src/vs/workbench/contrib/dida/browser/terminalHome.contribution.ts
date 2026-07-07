@@ -99,6 +99,7 @@ class TerminalHomePane extends EditorPane {
 	private placeholder: HTMLElement | undefined;
 	private lastDimension: dom.Dimension | undefined;
 	private creatingInitialTerminal = false;
+	private initialized = false;
 
 	constructor(
 		group: IEditorGroup,
@@ -160,8 +161,21 @@ class TerminalHomePane extends EditorPane {
 
 	override async setInput(input: EditorInput, options: IEditorOptions | undefined, context: IEditorOpenContext, token: CancellationToken): Promise<void> {
 		await super.setInput(input, options, context, token);
+		// Defer terminal creation until the pane has been laid out. The terminal
+		// must attach to a sized, connected container before its first `_open`;
+		// on a cold start `setInput` can run before `layout`, and creating the
+		// terminal then races and throws (placeholder + "try again"). `layout`
+		// re-runs this once a real dimension is known.
+		this.tryInitialize();
+	}
+
+	private tryInitialize(): void {
+		if (this.initialized || !this.input || !this.container || !this.lastDimension) {
+			return;
+		}
+		this.initialized = true;
 		if (this.terminalGroupService.instances.length === 0 && this.terminalService.restoredGroupCount === 0) {
-			await this.createTerminal();
+			this.createTerminal();
 		} else {
 			this.ensureTabbedView();
 		}
@@ -191,13 +205,13 @@ class TerminalHomePane extends EditorPane {
 	}
 
 	private ensureTabbedView(): void {
-		if (this.tabbedView || !this.container) {
+		// require a real dimension so the hosted terminal attaches to a sized
+		// container before it opens (see tryInitialize)
+		if (this.tabbedView || !this.container || !this.lastDimension) {
 			return;
 		}
 		this.tabbedView = this._register(this.instantiationService.createInstance(TerminalTabbedView, this.container));
-		if (this.lastDimension) {
-			this.tabbedView.layout(this.lastDimension.width, this.lastDimension.height);
-		}
+		this.tabbedView.layout(this.lastDimension.width, this.lastDimension.height);
 	}
 
 	private updatePlaceholder(): void {
@@ -211,6 +225,9 @@ class TerminalHomePane extends EditorPane {
 	override layout(dimension: dom.Dimension): void {
 		this.lastDimension = dimension;
 		this.tabbedView?.layout(dimension.width, dimension.height);
+		// a cold start may reach layout only after setInput; initialize now that
+		// the container has a real dimension
+		this.tryInitialize();
 	}
 
 	protected override setEditorVisible(visible: boolean): void {
