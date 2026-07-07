@@ -808,9 +808,10 @@ export class EncodingOracle extends Disposable implements IResourceEncodings {
 		defaultEncodingOverrides.push({ extension: WORKSPACE_EXTENSION, encoding: UTF8 });
 		defaultEncodingOverrides.push({ parent: this.environmentService.untitledWorkspacesHome, encoding: UTF8 });
 
-		// Folder Settings
+		// Folder Settings (config lives in .vscode or the Dida .dida folder)
 		this.contextService.getWorkspace().folders.forEach(folder => {
 			defaultEncodingOverrides.push({ parent: joinPath(folder.uri, '.vscode'), encoding: UTF8 });
+			defaultEncodingOverrides.push({ parent: joinPath(folder.uri, '.dida'), encoding: UTF8 });
 		});
 
 		return defaultEncodingOverrides;
