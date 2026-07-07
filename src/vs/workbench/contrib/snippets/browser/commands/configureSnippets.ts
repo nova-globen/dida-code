@@ -21,6 +21,7 @@ import { SnippetsAction } from './abstractSnippetsActions.js';
 import { ISnippetsService } from '../snippets.js';
 import { SnippetSource } from '../snippetsFile.js';
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
+import { IWorkbenchConfigurationService } from '../../../../services/configuration/common/configuration.js';
 import { IUserDataProfileService } from '../../../../services/userDataProfile/common/userDataProfile.js';
 
 namespace ISnippetPick {
@@ -267,6 +268,7 @@ export class ConfigureSnippetsAction extends SnippetsAction {
 		const languageService = accessor.get(ILanguageService);
 		const userDataProfileService = accessor.get(IUserDataProfileService);
 		const workspaceService = accessor.get(IWorkspaceContextService);
+		const configurationService = accessor.get(IWorkbenchConfigurationService);
 		const fileService = accessor.get(IFileService);
 		const textFileService = accessor.get(ITextFileService);
 		const labelService = accessor.get(ILabelService);
@@ -286,7 +288,7 @@ export class ConfigureSnippetsAction extends SnippetsAction {
 			workspaceSnippetPicks.push({
 				scope: nls.localize('new.workspace_scope', "{0} workspace", folder.name),
 				label: nls.localize('new.folder', "New Snippets file for '{0}'...", folder.name),
-				uri: folder.toResource('.vscode')
+				uri: folder.toResource(configurationService.getFolderConfigFolderName(folder.uri))
 			});
 		}
 

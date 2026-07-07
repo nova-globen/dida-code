@@ -18,6 +18,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IJSONEditingService, IJSONValue } from '../../configuration/common/jsonEditing.js';
+import { IWorkbenchConfigurationService, toFolderConfigRelativePath } from '../../configuration/common/configuration.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 
 export const EXTENSIONS_CONFIG = '.vscode/extensions.json';
@@ -55,17 +56,27 @@ export class WorkspaceExtensionsConfigService extends Disposable implements IWor
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageService private readonly languageService: ILanguageService,
 		@IJSONEditingService private readonly jsonEditingService: IJSONEditingService,
+		@IWorkbenchConfigurationService private readonly configurationService: IWorkbenchConfigurationService,
 	) {
 		super();
 		this._register(workspaceContextService.onDidChangeWorkspaceFolders(e => this._onDidChangeExtensionsConfigs.fire()));
 		this._register(fileService.onDidFilesChange(e => {
 			const workspace = workspaceContextService.getWorkspace();
 			if ((workspace.configuration && e.affects(workspace.configuration))
-				|| workspace.folders.some(folder => e.affects(folder.toResource(EXTENSIONS_CONFIG)))
+				|| workspace.folders.some(folder => e.affects(this.getExtensionsConfigResource(folder)))
 			) {
 				this._onDidChangeExtensionsConfigs.fire();
 			}
 		}));
+	}
+
+	/**
+	 * The workspace-folder `extensions.json` resource, resolved through the
+	 * folder's configured config folder (`.dida` or `.vscode`) so recommendations
+	 * are read and written from the same place as settings/tasks/launch.
+	 */
+	private getExtensionsConfigResource(workspaceFolder: IWorkspaceFolder): URI {
+		return workspaceFolder.toResource(toFolderConfigRelativePath(this.configurationService.getFolderConfigFolderName(workspaceFolder.uri), EXTENSIONS_CONFIG));
 	}
 
 	async getExtensionsConfigs(): Promise<IExtensionsConfigContent[]> {
@@ -162,7 +173,7 @@ export class WorkspaceExtensionsConfigService extends Disposable implements IWor
 		}
 
 		if (values.length) {
-			return this.jsonEditingService.write(workspaceFolder.toResource(EXTENSIONS_CONFIG), values, true);
+			return this.jsonEditingService.write(this.getExtensionsConfigResource(workspaceFolder), values, true);
 		}
 	}
 
@@ -215,7 +226,7 @@ export class WorkspaceExtensionsConfigService extends Disposable implements IWor
 			}
 		}
 		if (values.length) {
-			return this.jsonEditingService.write(workspaceFolder.toResource(EXTENSIONS_CONFIG), values, true);
+			return this.jsonEditingService.write(this.getExtensionsConfigResource(workspaceFolder), values, true);
 		}
 	}
 
@@ -286,7 +297,7 @@ export class WorkspaceExtensionsConfigService extends Disposable implements IWor
 
 	private async resolveWorkspaceFolderExtensionConfig(workspaceFolder: IWorkspaceFolder): Promise<IExtensionsConfigContent> {
 		try {
-			const content = await this.fileService.readFile(workspaceFolder.toResource(EXTENSIONS_CONFIG));
+			const content = await this.fileService.readFile(this.getExtensionsConfigResource(workspaceFolder));
 			const extensionsConfigContent = <IExtensionsConfigContent>parse(content.value.toString());
 			return this.parseExtensionConfig(extensionsConfigContent);
 		} catch (e) { /* ignore */ }

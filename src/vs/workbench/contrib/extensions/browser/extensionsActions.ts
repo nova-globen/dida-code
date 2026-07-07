@@ -50,6 +50,7 @@ import { IDialogService, IPromptButton } from '../../../../platform/dialogs/comm
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IActionViewItemOptions, ActionViewItem } from '../../../../base/browser/ui/actionbar/actionViewItems.js';
 import { EXTENSIONS_CONFIG, IExtensionsConfigContent } from '../../../services/extensionRecommendations/common/workspaceExtensionsConfig.js';
+import { IWorkbenchConfigurationService, toFolderConfigRelativePath } from '../../../services/configuration/common/configuration.js';
 import { getErrorMessage, isCancellationError } from '../../../../base/common/errors.js';
 import { IUserDataSyncEnablementService } from '../../../../platform/userDataSync/common/userDataSync.js';
 import { IContextMenuProvider } from '../../../../base/browser/contextmenu.js';
@@ -2450,9 +2451,18 @@ export abstract class AbstractConfigureRecommendedExtensionsAction extends Actio
 		@ITextFileService private readonly textFileService: ITextFileService,
 		@IEditorService protected editorService: IEditorService,
 		@IJSONEditingService private readonly jsonEditingService: IJSONEditingService,
-		@ITextModelService private readonly textModelResolverService: ITextModelService
+		@ITextModelService private readonly textModelResolverService: ITextModelService,
+		@IWorkbenchConfigurationService private readonly workbenchConfigurationService: IWorkbenchConfigurationService
 	) {
 		super(id, label);
+	}
+
+	/**
+	 * The workspace-folder `extensions.json` resource, resolved through the
+	 * folder's configured config folder (`.dida` or `.vscode`).
+	 */
+	protected getExtensionsConfigResource(workspaceFolder: IWorkspaceFolder): URI {
+		return workspaceFolder.toResource(toFolderConfigRelativePath(this.workbenchConfigurationService.getFolderConfigFolderName(workspaceFolder.uri), EXTENSIONS_CONFIG));
 	}
 
 	protected openExtensionsFile(extensionsFileResource: URI): Promise<any> {
@@ -2466,7 +2476,7 @@ export abstract class AbstractConfigureRecommendedExtensionsAction extends Actio
 							selection
 						}
 					})),
-				error => Promise.reject(new Error(localize('OpenExtensionsFile.failed', "Unable to create 'extensions.json' file inside the '.vscode' folder ({0}).", error))));
+				error => Promise.reject(new Error(localize('OpenExtensionsFile.failed', "Unable to create the workspace 'extensions.json' recommendations file ({0}).", error))));
 	}
 
 	protected openWorkspaceConfigurationFile(workspaceConfigurationFile: URI): Promise<any> {
@@ -2539,9 +2549,10 @@ export class ConfigureWorkspaceRecommendedExtensionsAction extends AbstractConfi
 		@IWorkspaceContextService contextService: IWorkspaceContextService,
 		@IEditorService editorService: IEditorService,
 		@IJSONEditingService jsonEditingService: IJSONEditingService,
-		@ITextModelService textModelResolverService: ITextModelService
+		@ITextModelService textModelResolverService: ITextModelService,
+		@IWorkbenchConfigurationService workbenchConfigurationService: IWorkbenchConfigurationService
 	) {
-		super(id, label, contextService, fileService, textFileService, editorService, jsonEditingService, textModelResolverService);
+		super(id, label, contextService, fileService, textFileService, editorService, jsonEditingService, textModelResolverService, workbenchConfigurationService);
 		this._register(this.contextService.onDidChangeWorkbenchState(() => this.update(), this));
 		this.update();
 	}
@@ -2553,7 +2564,7 @@ export class ConfigureWorkspaceRecommendedExtensionsAction extends AbstractConfi
 	public override run(): Promise<void> {
 		switch (this.contextService.getWorkbenchState()) {
 			case WorkbenchState.FOLDER:
-				return this.openExtensionsFile(this.contextService.getWorkspace().folders[0].toResource(EXTENSIONS_CONFIG));
+				return this.openExtensionsFile(this.getExtensionsConfigResource(this.contextService.getWorkspace().folders[0]));
 			case WorkbenchState.WORKSPACE:
 				return this.openWorkspaceConfigurationFile(this.contextService.getWorkspace().configuration!);
 		}
@@ -2575,9 +2586,10 @@ export class ConfigureWorkspaceFolderRecommendedExtensionsAction extends Abstrac
 		@IEditorService editorService: IEditorService,
 		@IJSONEditingService jsonEditingService: IJSONEditingService,
 		@ITextModelService textModelResolverService: ITextModelService,
-		@ICommandService private readonly commandService: ICommandService
+		@ICommandService private readonly commandService: ICommandService,
+		@IWorkbenchConfigurationService workbenchConfigurationService: IWorkbenchConfigurationService
 	) {
-		super(id, label, contextService, fileService, textFileService, editorService, jsonEditingService, textModelResolverService);
+		super(id, label, contextService, fileService, textFileService, editorService, jsonEditingService, textModelResolverService, workbenchConfigurationService);
 	}
 
 	public override run(): Promise<any> {
@@ -2586,7 +2598,7 @@ export class ConfigureWorkspaceFolderRecommendedExtensionsAction extends Abstrac
 		return Promise.resolve(pickFolderPromise)
 			.then(workspaceFolder => {
 				if (workspaceFolder) {
-					return this.openExtensionsFile(workspaceFolder.toResource(EXTENSIONS_CONFIG));
+					return this.openExtensionsFile(this.getExtensionsConfigResource(workspaceFolder));
 				}
 				return null;
 			});
