@@ -8,7 +8,7 @@ import { ICommandHandler } from '../../../../platform/commands/common/commands.j
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { WorkbenchCompressibleAsyncDataTree, WorkbenchListFocusContextKey } from '../../../../platform/list/browser/listService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { searchClearIcon, searchCollapseAllIcon, searchExpandAllIcon, searchRefreshIcon, searchShowAsList, searchShowAsTree, searchStopIcon } from './searchIcons.js';
+import { searchClearIcon, searchCollapseAllIcon, searchExpandAllIcon, searchRefreshIcon, searchResetIcon, searchShowAsList, searchShowAsTree, searchStopIcon } from './searchIcons.js';
 import * as Constants from '../common/constants.js';
 import { ISearchHistoryService } from '../common/searchHistoryService.js';
 import { VIEW_ID } from '../../../services/search/common/search.js';
@@ -140,6 +140,24 @@ registerAction2(class ClearSearchResultsAction extends Action2 {
 			category,
 			icon: searchClearIcon,
 			f1: true,
+			// Dida: the toolbar shows the fuller Reset Search button instead;
+			// Clear Search Results stays available from the Command Palette.
+			precondition: ContextKeyExpr.or(Constants.SearchContext.HasSearchResults, Constants.SearchContext.ViewHasSearchPatternKey, Constants.SearchContext.ViewHasReplacePatternKey, Constants.SearchContext.ViewHasFilePatternKey),
+		});
+	}
+	run(accessor: ServicesAccessor, ...args: unknown[]) {
+		return clearSearchResults(accessor);
+	}
+});
+
+registerAction2(class ResetSearchAction extends Action2 {
+	constructor() {
+		super({
+			id: Constants.SearchCommandIds.ResetSearchActionId,
+			title: nls.localize2('ResetSearchAction.label', "Reset Search"),
+			category,
+			icon: searchResetIcon,
+			f1: true,
 			precondition: ContextKeyExpr.or(Constants.SearchContext.HasSearchResults, Constants.SearchContext.ViewHasSearchPatternKey, Constants.SearchContext.ViewHasReplacePatternKey, Constants.SearchContext.ViewHasFilePatternKey),
 			menu: [{
 				id: MenuId.ViewTitle,
@@ -150,7 +168,7 @@ registerAction2(class ClearSearchResultsAction extends Action2 {
 		});
 	}
 	run(accessor: ServicesAccessor, ...args: unknown[]) {
-		return clearSearchResults(accessor);
+		return resetSearch(accessor);
 	}
 });
 
@@ -277,6 +295,12 @@ function clearSearchResults(accessor: ServicesAccessor) {
 	const viewsService = accessor.get(IViewsService);
 	const searchView = getSearchView(viewsService);
 	searchView?.clearSearchResults();
+}
+
+function resetSearch(accessor: ServicesAccessor) {
+	const viewsService = accessor.get(IViewsService);
+	const searchView = getSearchView(viewsService);
+	searchView?.resetSearch();
 }
 
 function cancelSearch(accessor: ServicesAccessor) {

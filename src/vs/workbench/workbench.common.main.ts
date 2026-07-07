@@ -220,6 +220,9 @@ import './contrib/dida/browser/terminalHome.contribution.js';
 // Default sidebar view (Explorer on first launch of a workspace)
 import './contrib/dida/browser/defaultSidebar.contribution.js';
 
+// Single Explorer pane (Search + Source Control views folded into Explorer)
+import './contrib/dida/browser/unifiedSidebar.contribution.js';
+
 // Update check against the Dida release manifest
 import './contrib/dida/browser/updateCheck.contribution.js';
 

@@ -165,6 +165,12 @@ export class SearchView extends ViewPane {
 	private searchWidgetsContainerElement!: HTMLElement;
 	private searchWidget!: SearchWidget;
 	private size!: dom.Dimension;
+
+	// Dida: in the single Explorer pane the Search accordion collapses to just
+	// its input widgets when there are no results and grows once a search runs.
+	private didAutoExpandForResults = false;
+	private autoExpanding = false;
+	private readonly relaxAutoHeightFloor = this._register(new MutableDisposable<IDisposable>());
 	private queryDetails!: HTMLElement;
 	private toggleQueryDetailsButton!: HTMLElement;
 	private inputPatternExcludes!: ExcludePatternInputWidget;
@@ -1377,12 +1383,86 @@ export class SearchView extends ViewPane {
 		const widgetHeight = dom.getTotalHeight(this.searchWidgetsContainerElement);
 		const messagesHeight = dom.getTotalHeight(this.messagesElement);
 		this.tree.layout(this.size.height - widgetHeight - messagesHeight, this.size.width - 28);
+
+		this.applyAutoHeightConstraints();
 	}
 
 	protected override layoutBody(height: number, width: number): void {
 		super.layoutBody(height, width);
 		this.size = new dom.Dimension(width, height);
 		this.reLayout();
+	}
+
+	/** Height needed to show the search/replace widgets, query details, and messages. */
+	private searchWidgetsHeight(): number {
+		return dom.getTotalHeight(this.searchWidgetsContainerElement) + dom.getTotalHeight(this.messagesElement);
+	}
+
+	/** True while the Search view shares its container with other accordions. */
+	private sharesContainer(): boolean {
+		const container = this.viewDescriptorService.getViewContainerByViewId(this.id);
+		return !!container && this.viewDescriptorService.getViewContainerModel(container).visibleViewDescriptors.length > 1;
+	}
+
+	private setBodySizeConstraints(min: number, max: number): void {
+		if (this.minimumBodySize !== min) {
+			this.minimumBodySize = min;
+		}
+		if (this.maximumBodySize !== max) {
+			this.maximumBodySize = max;
+		}
+	}
+
+	/**
+	 * Pins the Search accordion to its widgets' height while there is nothing to
+	 * show, and releases it to grow once a search is running or has results.
+	 * Only applies when sharing a container, so a stand-alone Search view keeps
+	 * its normal sizing.
+	 */
+	private applyAutoHeightConstraints(): void {
+		if (this.isDisposed || this.autoExpanding || !this.isBodyVisible() || !this.size || !this.sharesContainer()) {
+			return;
+		}
+		const widgetsHeight = this.searchWidgetsHeight();
+		if (widgetsHeight <= 0) {
+			return; // not laid out yet — avoid pinning the pane to nothing
+		}
+		const active = this.hasSearchResults() || this.state !== SearchUIState.Idle;
+		if (active) {
+			this.setBodySizeConstraints(widgetsHeight, Number.POSITIVE_INFINITY);
+		} else {
+			this.didAutoExpandForResults = false;
+			this.setBodySizeConstraints(widgetsHeight, widgetsHeight);
+		}
+	}
+
+	/**
+	 * On the first results after being pinned, briefly raises the size floor so
+	 * the split view grows this accordion, then relaxes it so it stays resizable.
+	 */
+	private expandForResults(): void {
+		if (this.isDisposed || !this.isBodyVisible() || !this.size || this.didAutoExpandForResults || !this.hasSearchResults() || !this.sharesContainer()) {
+			return;
+		}
+		this.didAutoExpandForResults = true;
+		this.autoExpanding = true;
+		const widgetsHeight = this.searchWidgetsHeight();
+		this.minimumBodySize = widgetsHeight + 240;
+		this.maximumBodySize = Number.POSITIVE_INFINITY;
+		this.relaxAutoHeightFloor.value = dom.scheduleAtNextAnimationFrame(dom.getWindow(this.container), () => {
+			this.autoExpanding = false;
+			if (!this.isDisposed && this.minimumBodySize !== widgetsHeight) {
+				this.minimumBodySize = widgetsHeight;
+			}
+		});
+	}
+
+	/** Clears the search box, replace box, include/exclude fields, and results. */
+	resetSearch(): void {
+		this.searchWidget.clear();
+		this.clearFilePatternFields();
+		this.clearSearchResults(false);
+		this.searchWidget.focus();
 	}
 
 	getControl() {
@@ -1902,6 +1982,7 @@ export class SearchView extends ViewPane {
 		}
 
 		this.reLayout();
+		this.expandForResults();
 	}
 
 	private async onSearchError(e: any, progressComplete: () => void, excludePatternText?: string, includePatternText?: string, completed?: ISearchComplete, shouldDoFinalRefresh = true) {

@@ -93,10 +93,12 @@ viewsRegistry.registerViews([{
 	singleViewPaneContainerTitle: localize('source control repositories', "Source Control Repositories"),
 	ctorDescriptor: new SyncDescriptor(SCMRepositoriesViewPane),
 	canToggleVisibility: true,
-	hideByDefault: true,
+	// Dida: Repositories lives in the single Explorer pane, visible but
+	// collapsed by default (only active when a provider exists, per `when`).
+	collapsed: true,
 	canMoveView: true,
 	weight: 20,
-	order: 0,
+	order: 40,
 	when: ContextKeyExpr.and(ContextKeyExpr.has('scm.providerCount'), ContextKeyExpr.notEquals('scm.providerCount', 0)),
 	// readonly when = ContextKeyExpr.or(ContextKeyExpr.equals('config.scm.alwaysShowProviders', true), ContextKeyExpr.and(ContextKeyExpr.notEquals('scm.providerCount', 0), ContextKeyExpr.notEquals('scm.providerCount', 1)));
 	containerIcon: sourceControlViewIcon
@@ -111,7 +113,8 @@ viewsRegistry.registerViews([{
 	canToggleVisibility: true,
 	canMoveView: true,
 	weight: 40,
-	order: 1,
+	// Dida: Changes accordion in the single Explorer pane.
+	order: 50,
 	containerIcon: sourceControlViewIcon,
 	openCommandActionDescriptor: {
 		id: viewContainer.id,
@@ -135,7 +138,9 @@ viewsRegistry.registerViews([{
 	canToggleVisibility: true,
 	canMoveView: true,
 	weight: 40,
-	order: 2,
+	// Dida: Graph accordion in the single Explorer pane (only active when a
+	// history provider exists, per `when`).
+	order: 60,
 	when: ContextKeyExpr.and(
 		ContextKeyExpr.has('scm.historyProviderCount'),
 		ContextKeyExpr.notEquals('scm.historyProviderCount', 0),

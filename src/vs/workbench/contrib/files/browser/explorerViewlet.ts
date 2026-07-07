@@ -110,11 +110,12 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 			name: OpenEditorsView.NAME,
 			ctorDescriptor: new SyncDescriptor(OpenEditorsView),
 			containerIcon: openEditorsViewIcon,
-			order: 0,
+			// Dida: Open Editors is the first accordion of the single Explorer
+			// pane; visible but collapsed by default (see unifiedSidebar).
+			order: 10,
 			canToggleVisibility: true,
 			canMoveView: true,
-			collapsed: false,
-			hideByDefault: true,
+			collapsed: true,
 			focusCommand: {
 				id: 'workbench.files.action.focusOpenEditorsView',
 				keybindings: { primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyE) }
@@ -128,7 +129,8 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 			name: EmptyView.NAME,
 			containerIcon: explorerViewIcon,
 			ctorDescriptor: new SyncDescriptor(EmptyView),
-			order: 1,
+			// Dida: same slot as the Folders view (shown when no folder is open).
+			order: 30,
 			canToggleVisibility: true,
 			focusCommand: {
 				id: 'workbench.explorer.fileView.focus'
@@ -142,7 +144,8 @@ export class ExplorerViewletViewsContribution extends Disposable implements IWor
 			name: localize2('folders', "Folders"),
 			containerIcon: explorerViewIcon,
 			ctorDescriptor: new SyncDescriptor(ExplorerView),
-			order: 1,
+			// Dida: the file tree sits after Search in the single Explorer pane.
+			order: 30,
 			canMoveView: true,
 			canToggleVisibility: false,
 			focusCommand: {

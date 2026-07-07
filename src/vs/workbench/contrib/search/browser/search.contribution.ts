@@ -62,6 +62,9 @@ const viewDescriptor: IViewDescriptor = {
 	ctorDescriptor: new SyncDescriptor(SearchView),
 	canToggleVisibility: false,
 	canMoveView: true,
+	// Dida: Search is relocated into the single Explorer pane (see
+	// unifiedSidebar.contribution); this places it second, after Open Editors.
+	order: 20,
 	openCommandActionDescriptor: {
 		id: viewContainer.id,
 		mnemonicTitle: nls.localize({ key: 'miViewSearch', comment: ['&& denotes a mnemonic'] }, "&&Search"),
