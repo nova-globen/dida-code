@@ -7,7 +7,10 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { arch } from '../../../../base/common/process.js';
 import { URI } from '../../../../base/common/uri.js';
-import { localize } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { createDecorator, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -26,14 +29,30 @@ const LAST_CHECK_KEY = 'dida.update.lastCheck';
 const DISMISSED_KEY = 'dida.update.dismissedVersion';
 const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 
-/**
- * Lightweight manual update check: fetches the release manifest from
- * code.didabit.com at most once a day and offers a download link when a
- * newer version is published. No auto-download, no installer execution.
- */
-class UpdateCheckContribution extends Disposable implements IWorkbenchContribution {
+interface ICheckOptions {
+	/** Ignore the once-a-day throttle (used by the manual Help menu check). */
+	readonly force?: boolean;
+	/** Report "up to date" / errors to the user (manual check only). */
+	readonly interactive?: boolean;
+}
 
-	static readonly ID = 'workbench.contrib.didaUpdateCheck';
+export const IDidaUpdateService = createDecorator<IDidaUpdateService>('didaUpdateService');
+
+export interface IDidaUpdateService {
+	readonly _serviceBrand: undefined;
+	checkForUpdates(options?: ICheckOptions): Promise<void>;
+}
+
+/**
+ * Lightweight update check: fetches the release manifest from
+ * code.didabit.com and offers a download link when a newer version is
+ * published. No auto-download, no installer execution. The automatic check
+ * runs at most once a day; the Help > Check for Updates command forces it and
+ * reports the result either way.
+ */
+class DidaUpdateService extends Disposable implements IDidaUpdateService {
+
+	declare readonly _serviceBrand: undefined;
 
 	constructor(
 		@IProductService private readonly productService: IProductService,
@@ -43,18 +62,24 @@ class UpdateCheckContribution extends Disposable implements IWorkbenchContributi
 		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
-		this.checkForUpdates();
 	}
 
-	private async checkForUpdates(): Promise<void> {
+	async checkForUpdates(options: ICheckOptions = {}): Promise<void> {
+		const { force, interactive } = options;
+
 		const manifestUrl = this.productService.didaUpdateManifestUrl;
 		if (!manifestUrl) {
+			if (interactive) {
+				this.notificationService.info(localize('updateNotConfigured', "Update checks are not available in this build."));
+			}
 			return;
 		}
 
-		const lastCheck = this.storageService.getNumber(LAST_CHECK_KEY, StorageScope.APPLICATION, 0);
-		if (Date.now() - lastCheck < CHECK_INTERVAL) {
-			return;
+		if (!force) {
+			const lastCheck = this.storageService.getNumber(LAST_CHECK_KEY, StorageScope.APPLICATION, 0);
+			if (Date.now() - lastCheck < CHECK_INTERVAL) {
+				return;
+			}
 		}
 
 		let release: IDidaRelease | null;
@@ -64,25 +89,28 @@ class UpdateCheckContribution extends Disposable implements IWorkbenchContributi
 			release = Array.isArray(json) ? json[0] : json;
 		} catch {
 			// offline or endpoint not live yet — try again next interval
+			if (interactive) {
+				this.notificationService.warn(localize('updateCheckFailed', "Could not check for updates. Check your connection and try again."));
+			}
 			return;
 		}
 		this.storageService.store(LAST_CHECK_KEY, Date.now(), StorageScope.APPLICATION, StorageTarget.MACHINE);
-		if (!release) {
-			return;
-		}
 
 		const platformKey = `win32-${arch}`;
-		const platformEntry = release.platforms?.[platformKey];
-		const latestVersion = platformEntry?.version ?? release.version;
-		const downloadUrl = platformEntry?.url ?? release.url ?? this.productService.downloadUrl;
-		if (!latestVersion || !downloadUrl) {
+		const platformEntry = release?.platforms?.[platformKey];
+		const latestVersion = platformEntry?.version ?? release?.version;
+		const downloadUrl = platformEntry?.url ?? release?.url ?? this.productService.downloadUrl;
+
+		if (!latestVersion || !downloadUrl || !this.isNewer(latestVersion, this.productService.version)) {
+			if (interactive) {
+				this.notificationService.info(localize('updateUpToDate', "Dida {0} is up to date.", this.productService.version));
+			}
 			return;
 		}
 
-		if (!this.isNewer(latestVersion, this.productService.version)) {
-			return;
-		}
-		if (this.storageService.get(DISMISSED_KEY, StorageScope.APPLICATION) === latestVersion) {
+		// a prior "Skip This Version" only suppresses the automatic prompt; an
+		// explicit manual check always surfaces the available update
+		if (!interactive && this.storageService.get(DISMISSED_KEY, StorageScope.APPLICATION) === latestVersion) {
 			return;
 		}
 
@@ -116,4 +144,36 @@ class UpdateCheckContribution extends Disposable implements IWorkbenchContributi
 	}
 }
 
+registerSingleton(IDidaUpdateService, DidaUpdateService, InstantiationType.Delayed);
+
+/** Fires the throttled automatic check shortly after startup. */
+class UpdateCheckContribution implements IWorkbenchContribution {
+
+	static readonly ID = 'workbench.contrib.didaUpdateCheck';
+
+	constructor(@IDidaUpdateService updateService: IDidaUpdateService) {
+		updateService.checkForUpdates();
+	}
+}
+
 registerWorkbenchContribution2(UpdateCheckContribution.ID, UpdateCheckContribution, WorkbenchPhase.Eventually);
+
+registerAction2(class CheckForUpdatesAction extends Action2 {
+	constructor() {
+		super({
+			id: 'dida.update.checkForUpdates',
+			title: localize2('checkForUpdates', "Check for Updates..."),
+			category: localize2('dida', "Dida"),
+			f1: true,
+			menu: {
+				id: MenuId.MenubarHelpMenu,
+				group: '1_welcome',
+				order: 6
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		await accessor.get(IDidaUpdateService).checkForUpdates({ force: true, interactive: true });
+	}
+});
