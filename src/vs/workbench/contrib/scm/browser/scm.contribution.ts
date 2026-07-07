@@ -88,7 +88,8 @@ viewsRegistry.registerViewWelcomeContent(HISTORY_VIEW_PANE_ID, {
 
 viewsRegistry.registerViews([{
 	id: REPOSITORIES_VIEW_PANE_ID,
-	containerTitle,
+	// Dida: no containerTitle so the accordion header reads "Repositories",
+	// not "Source Control: Repositories", now that it lives in Explorer.
 	name: localize2('scmRepositories', "Repositories"),
 	singleViewPaneContainerTitle: localize('source control repositories', "Source Control Repositories"),
 	ctorDescriptor: new SyncDescriptor(SCMRepositoriesViewPane),
@@ -106,7 +107,7 @@ viewsRegistry.registerViews([{
 
 viewsRegistry.registerViews([{
 	id: VIEW_PANE_ID,
-	containerTitle,
+	// Dida: no containerTitle so the accordion header reads "Changes".
 	name: localize2('scmChanges', 'Changes'),
 	singleViewPaneContainerTitle: containerTitle,
 	ctorDescriptor: new SyncDescriptor(SCMViewPane),
@@ -131,7 +132,7 @@ viewsRegistry.registerViews([{
 
 viewsRegistry.registerViews([{
 	id: HISTORY_VIEW_PANE_ID,
-	containerTitle,
+	// Dida: no containerTitle so the accordion header reads "Graph".
 	name: localize2('scmGraph', "Graph"),
 	singleViewPaneContainerTitle: localize('source control graph', "Source Control Graph"),
 	ctorDescriptor: new SyncDescriptor(SCMHistoryViewPane),
